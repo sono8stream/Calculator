@@ -10,13 +10,13 @@ public class Calculator : MonoBehaviour
     const int MAXdigit = 8;//最大桁数
 
     [SerializeField]
-    List<int[]> values;//入力値の配列
-    List<int> dotPositions;//入力値の小数点の位置
+    List<double> values;//入力値の配列
     List<int> operatorNumbers;//四則演算子の配列
 
-    int[] valueArray;//現在の入力値、各桁を配列で管理
-    int digitCounter;//入力値の桁数カウンター
-    int dotPosition;//入力値の小数点の位置
+    double inputValue;//現在の入力値、各桁を配列で管理
+    int nowDigitCounter;//入力値の桁数カウンター
+    int dotPosition;
+    bool inMinus;
 
     Text valueText;
 
@@ -33,25 +33,20 @@ public class Calculator : MonoBehaviour
 
     }
 
-    void InitializeValueArray()
+    void InitializeInputValue()
     {
-        valueArray = new int[MAXdigit];
-        valueArray[0] = 0;
-        for (int i = 1; i < MAXdigit; i++)//何も入力がない状態を-1として初期化
-        {
-            valueArray[i] = -1;
-        }
-        digitCounter = 0;
-        dotPosition = -1;//未設定であれば-1に
+        inputValue = 0;
+        nowDigitCounter = 0;
+        dotPosition = -1;//小数点未設定時は-1
+        inMinus = false;
     }
 
     public void InitializeCalculation()
     {
-        values = new List<int[]>();
-        dotPositions = new List<int>();
+        values = new List<double>();
         operatorNumbers = new List<int>();
 
-        InitializeValueArray();
+        InitializeInputValue();
 
         valueText.text = "0";
     }
@@ -59,93 +54,119 @@ public class Calculator : MonoBehaviour
     //valueArrayを数値に変換し、valuesに格納するメソッド
     void AddSection()
     {
-        values.Add(valueArray);
-        dotPositions.Add(dotPosition);
+        values.Add(inputValue);
 
-        InitializeValueArray();
+        InitializeInputValue();
     }
 
-    //配列からdouble値に変換するメソッド
-    double ValueArrayToValue(int[] array,int digCounter, int dotPos)
+    //double値を最大桁数内で画面に表示
+    void ShowValue(double value)
     {
-        double value = 0;
-        for (int i = 0; i < digCounter; i++)
+        string s = "";
+        if (value < 0)//負の値ならば正に変換しておく
         {
-            value = value * 10 + valueArray[i];
+            s += "-";
+            value *= -1;
         }
-
-        if (dotPos != -1)
-        {
-            value /= Mathf.Pow(10, digCounter - dotPos - 1);//小数点の位置で桁を補正する
-        }
-        return value;
-    }
-
-    //doubleの計算値を配列に変換して返すメソッド
-    void ValueToValueArray(double value, ref int[] array, ref int dotPos)
-    {
         int digitNumber = (int)Math.Floor(Math.Log10(value)) + 1;//最大桁数を取得
-        int nowNumber;//現在桁の値
-        //値を割り当て
-        for (int i = 0; i < MAXdigit; i++)
+
+        if (digitNumber > MAXdigit)//許容可能な最大桁数以上の場合、エラーを吐いて終了
         {
-            if (digitNumber == 1)//1の位であれば小数点を設定
+            s = "FLOW";
+        }
+        else
+        {
+
+            int nowNumber;//現在桁の値
+                          //値を割り当て
+            for (int i = 0; i < MAXdigit; i++)
             {
-                dotPos = i;
+                if (digitNumber == 0)//1の位であれば小数点を設定
+                {
+                    s += ".";
+                }
+                nowNumber = (int)Math.Floor(value / Math.Pow(10, digitNumber - 1));//最大桁の値
+                s += nowNumber.ToString();
+
+                value -= nowNumber * Math.Pow(10, digitNumber - 1);//最大桁を1つ下げる
+                digitNumber--;
             }
-            nowNumber = (int)Math.Floor(value / Math.Pow(10, digitNumber - 1));//最大桁の値
-            array[i] = nowNumber;
-            value -= nowNumber * Math.Pow(10, digitNumber - 1);//最大桁を1つ下げる
-            digitNumber--;
+
+            //右端から見てゆき、小数点以下かつ0ならば消す
+            for (int i = MAXdigit - 1; i >= 0; i--)
+            {
+                if (digitNumber <= 0 && s[s.Length - 1] == '0')
+                {
+                    s.Substring(0, s.Length - 1);
+                    if (digitNumber == 0)//小数第一位まで入力がなければ小数点を未設定に
+                    {
+                        s.Substring(0, s.Length - 1);
+                    }
+                    digitNumber++;
+                }
+                else
+                {
+                    break;
+                }
+            }
         }
 
-        //最小桁から見てゆき、小数点以下かつ0ならば未入力状態(-1)に
-        for (int i = MAXdigit - 1; i >= 0; i--)
-        {
-            if (digitNumber <= 0 && array[i] == 0)
-            {
-                array[i] = -1;
-                if (digitNumber == 0)//小数第一位まで入力がなければ小数点を未設定に
-                {
-                    dotPos = -1;
-                }
-                digitNumber++;
-            }
-            else
-            {
-                break;
-            }
-        }
+        valueText.text = s;
     }
 
     //数字ボタンを押したとき
     public void InputNumber(int number)
     {
-        if (digitCounter >= MAXdigit || (digitCounter == 0 && number == 0)) return;
+        if (nowDigitCounter >= MAXdigit || (nowDigitCounter == 0 && number == 0)) return;
 
-        valueArray[digitCounter]=number;
-        digitCounter++;
-        valueText.text = ValueArrayToValue(valueArray,digitCounter, dotPosition).ToString();
+        if (inMinus)
+        {
+            number *= -1;
+        }
+
+        if (dotPosition==-1)//小数未設定のとき
+        {
+            inputValue = inputValue * 10 + number;
+        }
+        else
+        {
+            inputValue += number * Math.Pow(10, dotPosition - nowDigitCounter);
+        }
+        nowDigitCounter++;
+        ShowValue(inputValue);
     }
 
     public void DeleteNumber()
     {
-        if (digitCounter == 0) return;
+        if (nowDigitCounter == 0) return;
 
-        valueArray[digitCounter] = -1;
-        digitCounter--;
-        if (digitCounter < dotPosition)
+        int index;//指数
+        if (dotPosition == -1)
+        {
+            index = -1;
+        }
+        else
+        {
+            index = nowDigitCounter - dotPosition - 2;
+        }
+        inputValue *= Math.Pow(10, index);
+        Math.Truncate(inputValue);//小数点以下丸め込み
+        inputValue *= Math.Pow(10, -index);
+
+        nowDigitCounter--;
+        if (nowDigitCounter == dotPosition + 1)
         {
             dotPosition = -1;
         }
-        valueText.text = ValueArrayToValue(valueArray, digitCounter, dotPosition).ToString();
+        ShowValue(inputValue);
     }
 
     //四則演算子ボタンを押したとき
     public void SetOperator(int operatorNo)
     {
         operatorNumbers.Add(operatorNo);
-        InitializeValueArray();
+        AddSection();
+        InitializeInputValue();
     }
 
     //計算処理
@@ -172,23 +193,20 @@ public class Calculator : MonoBehaviour
         }
 
         return result;
-
-        //InitializeCalculation();
     }
 
     public void CalculateAll()
     {
-        string s;
-        if (System.Math.Log10(result) > MAXdigit)
+        if (values.Count == 0) return;
+
+        double result = values[0];
+        for (int i = 1; i < values.Count && i < operatorNumbers.Count; i++)
         {
-            s = "overFlow";
+            Calculate(result, values[i], operatorNumbers[i]);
         }
-        else
-        {
-            s = result.ToString();
-        }
-        valueText.text = s;
-        value1 = ValueTextToArray(ref dotPosition1, ref digitCounter1);
+
+        ShowValue(result);
+        values[ = ValueTextToArray(ref dotPosition1, ref digitCounter1);
     }
 
     public void SetDotPoint()
