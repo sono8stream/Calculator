@@ -84,58 +84,40 @@ public class Calculator : MonoBehaviour
             values[sectionCounter, i] = valueArray[i];
         }
         dotPositions[sectionCounter] = dotPosition;
-
-        /*valuesがdoubleのとき
-        double value = 0;
-        for (int i = 0; i < digitCounter; i++)
-        {
-            value = value * 10 + valueArray[i];
-        }
-
-        if (dotPosition != -1)
-        {
-            value /= Mathf.Pow(10, digitCounter - dotPosition - 1);//小数点の位置で桁を補正する
-        }
-        values[sectionCounter] = value;
-        */
         sectionCounter++;
 
         InitializeValueArray();
     }
 
     //doubleの計算値を配列に変換してvalueArrayに格納するメソッド
-    void SetValueToArray(double value)
+    void ValueToValueArray(double value, ref int[] array, ref int dotPos)
     {
         int digitNumber = (int)Math.Floor(Math.Log10(value)) + 1;//最大桁数を取得
         int nowNumber;//現在桁の値
         //値を割り当て
-        for(int i = 0; i < MAXdigit; i++)
+        for (int i = 0; i < MAXdigit; i++)
         {
             if (digitNumber == 1)//1の位であれば小数点を設定
             {
-                dotPosition = i;
+                dotPos = i;
             }
-
             nowNumber = (int)Math.Floor(value / Math.Pow(10, digitNumber - 1));//最大桁の値
-            valueArray[i] = nowNumber;
+            array[i] = nowNumber;
             value -= nowNumber * Math.Pow(10, digitNumber - 1);//最大桁を1つ下げる
             digitNumber--;
         }
 
         //最小桁から見てゆき、小数点以下かつ0ならば未入力状態(-1)に
-        for (int i = MAXdigit; i >= 0; i--)
+        for (int i = MAXdigit - 1; i >= 0; i--)
         {
-            if (digitNumber <= 0 && valueArray[i] == 0)
+            if (digitNumber <= 0 && array[i] == 0)
             {
-                valueArray[i] = -1;
-                if (digitNumber == 0)
+                array[i] = -1;
+                if (digitNumber == 0)//小数第一位まで入力がなければ小数点を未設定に
                 {
-                    dotPosition = -1;
+                    dotPos = -1;
                 }
-                else
-                {
-                    digitNumber++;
-                }
+                digitNumber++;
             }
             else
             {
