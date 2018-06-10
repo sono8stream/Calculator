@@ -7,15 +7,12 @@ using UnityEngine.UI;
 //入力された複数の値(小数含む)を計算するプログラムです
 public class Calculator : MonoBehaviour
 {
-    const int MAXsection = 100;
-    const int MAXoperator = 50;
     const int MAXdigit = 8;//最大桁数
 
     [SerializeField]
-    int[,] values;//入力値の配列
-    int[] dotPositions;//入力値の小数点の位置
-    int sectionCounter;//現在の項数
-    int[] operatorNumbers;//四則演算子の配列
+    List<int[]> values;//入力値の配列
+    List<int> dotPositions;//入力値の小数点の位置
+    List<int> operatorNumbers;//四則演算子の配列
 
     int[] valueArray;//現在の入力値、各桁を配列で管理
     int digitCounter;//入力値の桁数カウンター
@@ -26,14 +23,7 @@ public class Calculator : MonoBehaviour
     // Use this for initialization
     void Start()
     {
-        values = new int[MAXsection, MAXdigit];
-        dotPositions = new int[MAXsection];
-
-        valueArray = new int[MAXdigit];
-        operatorNumbers = new int[MAXoperator];
-
         valueText = GetComponent<Text>();
-
         InitializeCalculation();
     }
 
@@ -45,6 +35,7 @@ public class Calculator : MonoBehaviour
 
     void InitializeValueArray()
     {
+        valueArray = new int[MAXdigit];
         valueArray[0] = 0;
         for (int i = 1; i < MAXdigit; i++)//何も入力がない状態を-1として初期化
         {
@@ -56,20 +47,9 @@ public class Calculator : MonoBehaviour
 
     public void InitializeCalculation()
     {
-        for (int sectionI = 0; sectionI < MAXsection; sectionI++)
-        {
-            for (int digitI = 0; digitI < MAXdigit; digitI++)
-            {
-                values[sectionI, digitI] = -1;
-            }
-            dotPositions[sectionI] = -1;
-        }
-        sectionCounter = 0;
-
-        for (int i = 0; i < MAXoperator; i++)
-        {
-            operatorNumbers[i] = 0;
-        }
+        values = new List<int[]>();
+        dotPositions = new List<int>();
+        operatorNumbers = new List<int>();
 
         InitializeValueArray();
 
@@ -79,17 +59,29 @@ public class Calculator : MonoBehaviour
     //valueArrayを数値に変換し、valuesに格納するメソッド
     void AddSection()
     {
-        for(int i = 0; i < MAXdigit; i++)//値コピー(参照コピーは避ける)
-        {
-            values[sectionCounter, i] = valueArray[i];
-        }
-        dotPositions[sectionCounter] = dotPosition;
-        sectionCounter++;
+        values.Add(valueArray);
+        dotPositions.Add(dotPosition);
 
         InitializeValueArray();
     }
 
-    //doubleの計算値を配列に変換してvalueArrayに格納するメソッド
+    //配列からdouble値に変換するメソッド
+    double ValueArrayToValue(int[] array,int digCounter, int dotPos)
+    {
+        double value = 0;
+        for (int i = 0; i < digCounter; i++)
+        {
+            value = value * 10 + valueArray[i];
+        }
+
+        if (dotPos != -1)
+        {
+            value /= Mathf.Pow(10, digCounter - dotPos - 1);//小数点の位置で桁を補正する
+        }
+        return value;
+    }
+
+    //doubleの計算値を配列に変換して返すメソッド
     void ValueToValueArray(double value, ref int[] array, ref int dotPos)
     {
         int digitNumber = (int)Math.Floor(Math.Log10(value)) + 1;//最大桁数を取得
@@ -129,96 +121,63 @@ public class Calculator : MonoBehaviour
     //数字ボタンを押したとき
     public void InputNumber(int number)
     {
-        if (onFirstValue)
-        {
-            if (digitCounter1 >= MAXdigit
-                || (digitCounter1 == 0 && number == 0)) return;
-            value1[digitCounter1] = number;
+        if (digitCounter >= MAXdigit || (digitCounter == 0 && number == 0)) return;
 
-            digitCounter1++;
-            valueText.text = ArrayToValue(value1, digitCounter1, dotPosition1).ToString("G");
-        }
-        else
-        {
-            if (digitCounter2 >= MAXdigit
-                || (digitCounter2 == 0 && number == 0)) return;
-            value2[digitCounter2] = number;
-
-            digitCounter2++;
-            valueText.text = ArrayToValue(value2, digitCounter2, dotPosition2).ToString("G");
-        }
+        valueArray[digitCounter]=number;
+        digitCounter++;
+        valueText.text = ValueArrayToValue(valueArray,digitCounter, dotPosition).ToString();
     }
 
     public void DeleteNumber()
     {
-        if (onFirstValue)
-        {
-            if (digitCounter1 == 0) return;//何も入力されていなければ中断
-            value1[digitCounter1] = -1;
-            digitCounter1--;
-            if (digitCounter1 < dotPosition1)
-            {
-                dotPosition1 = -1;
-            }
+        if (digitCounter == 0) return;
 
-            valueText.text = ArrayToValue(value1, digitCounter1, dotPosition1).ToString("G");
-        }
-        else
+        valueArray[digitCounter] = -1;
+        digitCounter--;
+        if (digitCounter < dotPosition)
         {
-            if (digitCounter2 == 0) return;//何も入力されていなければ中断
-            value2[digitCounter2] = -1;
-            digitCounter2--;
-            if (digitCounter2 < dotPosition2)
-            {
-                dotPosition2 = -1;
-            }
-
-            valueText.text = ArrayToValue(value2, digitCounter2, dotPosition2).ToString("G");
+            dotPosition = -1;
         }
+        valueText.text = ValueArrayToValue(valueArray, digitCounter, dotPosition).ToString();
     }
 
     //四則演算子ボタンを押したとき
     public void SetOperator(int operatorNo)
     {
-        if (!onFirstValue) return;//value2の入力後は受け付けない
-
-        operatorType = (Operator)System.Enum.ToObject(typeof(Operator), operatorNo);
-        onFirstValue = false;
-        value2 = new int[MAXdigit];
-        value2[0] = 0;
-        for(int i = 0; i < MAXdigit; i++)
-        {
-            value2[i] = -1;
-        }
+        operatorNumbers.Add(operatorNo);
+        InitializeValueArray();
     }
 
     //計算処理
-    public void Calculate()
+    double Calculate(double v1,double v2,int operatorNo)
     {
-        double v1 = ArrayToValue(value1, digitCounter1, dotPosition1);
-        double v2 = ArrayToValue(value2, digitCounter2, dotPosition2);
         double result = 0;
 
-        switch (operatorType)
+        switch (operatorNo)
         {
-            case Operator.Plus:
+            case 0://和
                 result = v1 + v2;
                 break;
-            case Operator.Minus:
+            case 1://差
                 result = v1 - v2;
                 break;
-            case Operator.Multiply:
+            case 2://積
                 result = v1 * v2;
                 break;
-            case Operator.Divide:
+            case 3://商
                 if (v2 == 0) break;//0で割るとエラーするので回避
 
                 result = v1 / v2;
                 break;
         }
 
-        //InitializeCalculation();
+        return result;
 
+        //InitializeCalculation();
+    }
+
+    public void CalculateAll()
+    {
         string s;
         if (System.Math.Log10(result) > MAXdigit)
         {
