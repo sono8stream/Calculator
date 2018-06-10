@@ -1,28 +1,36 @@
-﻿using System.Collections;
+﻿using System;//追加しました
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-//入力された2つの小数を計算するプログラムです
+//入力された複数の値(小数含む)を計算するプログラムです
 public class Calculator : MonoBehaviour
 {
+    const int MAXsection = 100;
+    const int MAXoperator = 50;
     const int MAXdigit = 8;//最大桁数
 
     [SerializeField]
-    int[] value1, value2;//2つの入力値
-    int digitCounter1, digitCounter2;//現在の桁数カウンター
-    int dotPosition1, dotPosition2;//小数点の位置
-    Operator operatorType;
-    bool onFirstValue;//value1の入力中かどうか
+    int[,] values;//入力値の配列
+    int[] dotPositions;//入力値の小数点の位置
+    int sectionCounter;//現在の項数
+    int[] operatorNumbers;//四則演算子の配列
+
+    int[] valueArray;//現在の入力値、各桁を配列で管理
+    int digitCounter;//入力値の桁数カウンター
+    int dotPosition;//入力値の小数点の位置
 
     Text valueText;
 
     // Use this for initialization
     void Start()
     {
-        value1 = new int[MAXdigit];
-        value2 = new int[MAXdigit];
-        operatorType = 0;
+        values = new int[MAXsection, MAXdigit];
+        dotPositions = new int[MAXsection];
+
+        valueArray = new int[MAXdigit];
+        operatorNumbers = new int[MAXoperator];
 
         valueText = GetComponent<Text>();
 
@@ -35,32 +43,49 @@ public class Calculator : MonoBehaviour
 
     }
 
-    //何も入力がない状態を-1として初期化するメソッド
+    void InitializeValueArray()
+    {
+        valueArray[0] = 0;
+        for (int i = 1; i < MAXdigit; i++)//何も入力がない状態を-1として初期化
+        {
+            valueArray[i] = -1;
+        }
+        digitCounter = 0;
+        dotPosition = -1;//未設定であれば-1に
+    }
+
     public void InitializeCalculation()
     {
-        value1[0] = 0;
-        value2[0] = 0;
-        for (int i = 1; i < MAXdigit; i++)
+        for (int sectionI = 0; sectionI < MAXsection; sectionI++)
         {
-            value1[i] = -1;
-            value2[i] = -1;
+            for (int digitI = 0; digitI < MAXdigit; digitI++)
+            {
+                values[sectionI, digitI] = -1;
+            }
+            dotPositions[sectionI] = -1;
+        }
+        sectionCounter = 0;
+
+        for (int i = 0; i < MAXoperator; i++)
+        {
+            operatorNumbers[i] = 0;
         }
 
-        digitCounter1 = 0;
-        digitCounter2 = 0;
-
-        dotPosition1 = -1;//未設定であれば-1に
-        dotPosition2 = -1;
-
-        operatorType = 0;
-        onFirstValue = true;
+        InitializeValueArray();
 
         valueText.text = "0";
     }
 
-    //配列から数値に変換するメソッド
-    double ArrayToValue(int[] valueArray, int digitCounter, int dotPosition)
+    //valueArrayを数値に変換し、valuesに格納するメソッド
+    void AddSection()
     {
+        for(int i = 0; i < MAXdigit; i++)//値コピー(参照コピーは避ける)
+        {
+            values[sectionCounter, i] = valueArray[i];
+        }
+        dotPositions[sectionCounter] = dotPosition;
+
+        /*valuesがdoubleのとき
         double value = 0;
         for (int i = 0; i < digitCounter; i++)
         {
@@ -71,44 +96,52 @@ public class Calculator : MonoBehaviour
         {
             value /= Mathf.Pow(10, digitCounter - dotPosition - 1);//小数点の位置で桁を補正する
         }
-        return value;
+        values[sectionCounter] = value;
+        */
+        sectionCounter++;
+
+        InitializeValueArray();
     }
 
-    int[] ValueTextToArray(ref int dotPosition, ref int digitCounter)
+    //doubleの計算値を配列に変換してvalueArrayに格納するメソッド
+    void SetValueToArray(double value)
     {
-        int[] array = new int[MAXdigit];
-        array[0] = 0;
-        for (int i = 1; i < MAXdigit; i++)
+        int digitNumber = (int)Math.Floor(Math.Log10(value)) + 1;//最大桁数を取得
+        int nowNumber;//現在桁の値
+        //値を割り当て
+        for(int i = 0; i < MAXdigit; i++)
         {
-            array[i] = -1;
-        }
-        string text = valueText.text;
+            if (digitNumber == 1)//1の位であれば小数点を設定
+            {
+                dotPosition = i;
+            }
 
-        double val;
-        if (!double.TryParse(text, out val)) return array;
+            nowNumber = (int)Math.Floor(value / Math.Pow(10, digitNumber - 1));//最大桁の値
+            valueArray[i] = nowNumber;
+            value -= nowNumber * Math.Pow(10, digitNumber - 1);//最大桁を1つ下げる
+            digitNumber--;
+        }
 
-        int index = text.IndexOf('.');
-        if (index > 0)//小数点が表示されているとき
+        //最小桁から見てゆき、小数点以下かつ0ならば未入力状態(-1)に
+        for (int i = MAXdigit; i >= 0; i--)
         {
-            dotPosition = index - 1;
-            text = text.Replace(".", "");
+            if (digitNumber <= 0 && valueArray[i] == 0)
+            {
+                valueArray[i] = -1;
+                if (digitNumber == 0)
+                {
+                    dotPosition = -1;
+                }
+                else
+                {
+                    digitNumber++;
+                }
+            }
+            else
+            {
+                break;
+            }
         }
-        int length = text.Length;
-        if (MAXdigit < length)
-        {
-            digitCounter = MAXdigit;
-        }
-        else
-        {
-            digitCounter = length;
-        }
-        Debug.Log(digitCounter);
-
-        for (int i = 0; i < digitCounter; i++)
-        {
-            array[i] = text[i] - '0';
-        }
-        return array;
     }
 
     //数字ボタンを押したとき
@@ -266,9 +299,4 @@ public class Calculator : MonoBehaviour
             value1 = ValueTextToArray(ref dotPosition2, ref digitCounter2);
         }
     }
-}
-
-public enum Operator
-{
-    Plus, Minus, Multiply, Divide
 }
