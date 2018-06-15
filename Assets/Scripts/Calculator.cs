@@ -119,7 +119,16 @@ public class Calculator : MonoBehaviour
         minus[outIndex] = value < 0;
         value = Math.Abs(value);
 
-        int digitNumber = (int)Math.Floor(Math.Log10(value)) + 1;//最大桁位置を取得
+        int digitNumber;//最大桁位置
+        if (value < 1)
+        {
+            digitNumber = 1;
+        }
+        else
+        {
+            digitNumber = (int)Math.Floor(Math.Log10(value)) + 1;
+        }
+
         int nowNumber;//現在桁の値
         //値を割り当て
         for (int i = 0; i < MAXdigit; i++)
@@ -259,7 +268,7 @@ public class Calculator : MonoBehaviour
     {
         double value = ArrayToValue(valueCounter);
         value *= Math.PI / 180;
-
+        Debug.Log(value);
         switch (calcNo)
         {
             case 0://sine
