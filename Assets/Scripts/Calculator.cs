@@ -171,7 +171,7 @@ public class Calculator : MonoBehaviour
         {
             pastValues.RemoveAt(0);
         }
-        pastIndex = pastValues.Count;
+        pastIndex = pastValues.Count - 1;
     }
 
     //数字ボタンを押したとき
@@ -290,7 +290,7 @@ public class Calculator : MonoBehaviour
     {
         if (pastValues.Count == 0) return;
 
-        if ((up && pastIndex > 0) || pastIndex == pastValues.Count)
+        if (up && pastIndex > 0)
         {
             pastIndex--;
         }
